@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loupe — A Portable Web Runtime for Data Applications</title>
+  <meta name="description" content="Build interactive data dashboards that run entirely in the browser. DuckDB-WASM, reactive filters, and Web Components — no server required." />
+  <meta property="og:title" content="Loupe — Data Apps That Just Work" />
+  <meta property="og:description" content="A portable web runtime for data applications. DuckDB-WASM, reactive filters, persistent state — all in the browser. Share a link, it just works." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --loupe-font: system-ui, -apple-system, sans-serif;
+      --loupe-bg: #ffffff;
+      --loupe-bg-alt: #f8f9fa;
+      --loupe-fg: #1a1a2e;
+      --loupe-fg-muted: #6c757d;
+      --loupe-border: #dee2e6;
+      --loupe-accent: #4361ee;
+      --loupe-success: #2dc653;
+      --loupe-danger: #e63946;
+      --loupe-radius: 6px;
+      --loupe-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --site-font: 'Inter', system-ui, -apple-system, sans-serif;
+      --site-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', monospace;
+    }
+
+    body {
+      font-family: var(--loupe-font);
+      background: var(--loupe-bg-alt);
+      color: var(--loupe-fg);
+      transition: background 200ms ease, color 200ms ease;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Hero ──────────────────────────────────────────────────── */
+
+    .hero {
+      background: #0f172a;
+      color: #f1f5f9;
+      padding: 4rem 2rem 3rem;
+    }
+
+    .hero-inner {
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      border: 1px solid #1e3a5f;
+      border-radius: 999px;
+      padding: 0.25rem 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      color: #38bdf8;
+    }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: #94a3b8;
+      line-height: 1.6;
+      max-width: 600px;
+      margin-bottom: 2rem;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--site-font);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.65rem 1.4rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 100ms ease, box-shadow 100ms ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      background: #4361ee;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(67, 97, 238, 0.35);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+    }
+
+    .btn-secondary:hover { border-color: #64748b; }
+
+    /* ── Code Block ──────────────────────────────────────────── */
+
+    .hero-code {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      font-family: var(--site-mono);
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: #e2e8f0;
+    }
+
+    .hero-code .kw  { color: #c084fc; }
+    .hero-code .str { color: #34d399; }
+    .hero-code .fn  { color: #38bdf8; }
+    .hero-code .cm  { color: #64748b; }
+    .hero-code .num { color: #fbbf24; }
+
+    /* ── Stats Bar ───────────────────────────────────────────── */
+
+    .stats {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      padding: 1.5rem 0 0;
+      border-top: 1px solid #1e3a5f;
+      margin-top: 2rem;
+    }
+
+    .stat {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.3rem;
+      color: #f1f5f9;
+      font-weight: 700;
+    }
+
+    /* ── Sections ─────────────────────────────────────────────── */
+
+    section {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    section h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    section h2 + p {
+      color: var(--loupe-fg-muted);
+      margin-bottom: 2rem;
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    /* ── Live Demo ────────────────────────────────────────────── */
+
+    .demo-section {
+      background: var(--loupe-bg);
+      border-top: 1px solid var(--loupe-border);
+      border-bottom: 1px solid var(--loupe-border);
+      transition: background 200ms ease;
+    }
+
+    .demo-section section {
+      max-width: 960px;
+    }
+
+    #demo-themes {
+      margin-bottom: 1.5rem;
+    }
+
+    #dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    #demo-loading {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--loupe-fg-muted);
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--loupe-border);
+      border-top-color: var(--loupe-accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Abstractions Grid ────────────────────────────────────── */
+
+    .abstractions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .abstraction {
+      background: var(--loupe-bg);
+      border: 1px solid var(--loupe-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      transition: box-shadow 200ms ease, background 200ms ease;
+    }
+
+    .abstraction:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    .abstraction h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .abstraction p {
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: var(--loupe-fg-muted);
+    }
+
+    /* ── Comparison Table ─────────────────────────────────────── */
+
+    .comparison-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--loupe-border);
+      border-radius: 10px;
+    }
+
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    .comparison th,
+    .comparison td {
+      text-align: left;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--loupe-border);
+    }
+
+    .comparison th {
+      background: var(--loupe-bg-alt);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--loupe-fg-muted);
+    }
+
+    .comparison td {
+      background: var(--loupe-bg);
+      color: var(--loupe-fg);
+    }
+
+    .comparison tr:last-child td {
+      border-bottom: none;
+      font-weight: 600;
+      color: var(--loupe-accent);
+    }
+
+    .yes { color: var(--loupe-success); }
+    .no  { color: var(--loupe-danger); }
+
+    /* ── Install ──────────────────────────────────────────────── */
+
+    .install-section {
+      background: #0f172a;
+      color: #f1f5f9;
+    }
+
+    .install-section h2 { color: #f1f5f9; }
+    .install-section h2 + p { color: #94a3b8; }
+
+    .install-block {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1.5rem;
+      font-family: var(--site-mono);
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      line-height: 1.6;
+      overflow-x: auto;
+    }
+
+    .install-block .prompt { color: #64748b; user-select: none; }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+
+    .footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.8rem;
+      color: var(--loupe-fg-muted);
+      border-top: 1px solid var(--loupe-border);
+    }
+
+    .footer a {
+      color: var(--loupe-accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ───────────────────────────────────────────── */
+
+    @media (max-width: 640px) {
+      .hero { padding: 2.5rem 1.25rem 2rem; }
+      section { padding: 2rem 1.25rem; }
+      .stats { gap: 1.25rem; }
+    }
+  </style>
+  <script type="module" crossorigin src="/loupe/assets/index-CisY0EzZ.js"></script>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- HERO                                                       -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="hero">
+    <div class="hero-inner">
+      <span class="hero-badge">Open Source</span>
+      <h1>Data dashboards that<br/><em>run anywhere.</em><br/>No server required.</h1>
+      <p class="hero-sub">
+        Loupe is a portable web runtime for data applications. Import one module,
+        get a SQL database, reactive filters, computed metrics, and persistent state
+        &mdash; all running in the browser. Share a URL, it just works.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#demo">See it live &darr;</a>
+        <a class="btn btn-secondary" href="https://github.com/jaredleonard/loupe">GitHub &rarr;</a>
+      </div>
+
+      <div class="hero-code"><pre><span class="kw">import</span> { createDashboard } <span class="kw">from</span> <span class="str">'@loupe/loupe'</span>;
+
+<span class="kw">await</span> <span class="fn">createDashboard</span>({
+  source: { url: <span class="str">'/data/sales.csv'</span>, table: <span class="str">'sales'</span>, namespace: <span class="str">'demo'</span> },
+  filters: [<span class="str">'region'</span>, <span class="str">'product'</span>],
+  metrics: [
+    { label: <span class="str">'Revenue'</span>,  sqlExpr: <span class="str">'SUM(revenue)'</span>,  format: v =&gt; <span class="str">`$${</span>v<span class="str">}`</span> },
+    { label: <span class="str">'Units'</span>,    sqlExpr: <span class="str">'SUM(units)'</span>,    format: v =&gt; String(v) },
+    { label: <span class="str">'Deals'</span>,    sqlExpr: <span class="str">'COUNT(*)'</span>,      format: v =&gt; String(v) },
+    { label: <span class="str">'Avg Deal'</span>, sqlExpr: <span class="str">'ROUND(SUM(revenue)/COUNT(*))'</span>, format: v =&gt; <span class="str">`$${</span>v<span class="str">}`</span> },
+  ],
+  table:  { columns: [<span class="str">'date'</span>, <span class="str">'region'</span>, <span class="str">'product'</span>, <span class="str">'rep'</span>, <span class="str">'revenue'</span>] },
+});</pre></div>
+
+      <div class="stats">
+        <div class="stat"><strong>0</strong> servers required</div>
+        <div class="stat"><strong>7</strong> composable packages</div>
+        <div class="stat"><strong>DuckDB</strong> SQL in the browser</div>
+        <div class="stat"><strong>Works</strong> offline</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- LIVE DEMO                                                   -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="demo-section" id="demo">
+    <section>
+      <h2>Live Demo</h2>
+      <p>This dashboard is running in your browser right now. DuckDB-WASM powers the SQL. Filters are reactive. Try switching themes.</p>
+
+      <div id="demo-themes"></div>
+
+      <div id="dashboard">
+        <div id="demo-loading"><span class="spinner"></span>Booting DuckDB-WASM&hellip;</div>
+        <div id="status" style="display:none;"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- THE PROBLEM                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>The Problem</h2>
+    <p>
+      You have a CSV, a JSON API, or a Parquet file. You want an interactive dashboard you can share with a link.
+      Today that means spinning up a server, configuring a database, wiring up a frontend, and deploying it somewhere.
+      Loupe skips all of that. Your data goes straight into an in-browser SQL engine. Filters, metrics, and tables render automatically. The result is a static site you can host anywhere.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- WHAT YOU GET                                                -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>What You Get</h2>
+    <p>One <code>npm install</code>, one config object. Everything else is handled.</p>
+
+    <div class="abstractions">
+      <div class="abstraction">
+        <h3>SQL in the browser</h3>
+        <p>DuckDB-WASM loads your data into a real SQL engine. Write queries against CSV, JSON, or Parquet — no server needed.</p>
+      </div>
+      <div class="abstraction">
+        <h3>Reactive filters</h3>
+        <p>Declare which columns are filterable. Loupe renders dropdowns that re-query on change. State persists across reloads.</p>
+      </div>
+      <div class="abstraction">
+        <h3>Computed metrics</h3>
+        <p>Define SQL expressions for KPIs. They update automatically when filters change. Custom formatters included.</p>
+      </div>
+      <div class="abstraction">
+        <h3>Off-thread compute</h3>
+        <p>Run forecasts, aggregations, or transforms in a Web Worker pool. The main thread stays responsive.</p>
+      </div>
+      <div class="abstraction">
+        <h3>Deploy as static files</h3>
+        <p>The output is HTML + JS. Host it on GitHub Pages, S3, Netlify, or any static file server. No backend to maintain.</p>
+      </div>
+      <div class="abstraction">
+        <h3>Works offline</h3>
+        <p>Once loaded, everything runs locally. No round-trips, no API keys, no usage limits.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- CONNECT YOUR DATA                                           -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="install-section">
+    <section>
+      <h2>Connect Your Data</h2>
+      <p>Point Loupe at any data source. Static files, REST APIs, or S3 buckets — it all works.</p>
+
+      <div class="install-block"><pre><span class="cm">// Static file — CSV, JSON, or Parquet</span>
+source: { url: <span class="str">'/data/sales.csv'</span>, table: <span class="str">'sales'</span> }
+
+<span class="cm">// REST API with auth headers</span>
+source: {
+  url: <span class="str">'https://api.example.com/orders'</span>,
+  table: <span class="str">'orders'</span>,
+  fetchOptions: { headers: { Authorization: <span class="str">'Bearer &lt;token&gt;'</span> } },
+}
+
+<span class="cm">// S3 / public cloud bucket</span>
+source: { url: <span class="str">'https://my-bucket.s3.amazonaws.com/data.parquet'</span>, table: <span class="str">'events'</span> }
+
+<span class="cm">// Custom connector — plug in any data source</span>
+<span class="kw">import</span> { connect } <span class="kw">from</span> <span class="str">'@loupe/connect'</span>;
+connect.register(<span class="str">'mydb'</span>, myCustomConnector);</pre></div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- VS. ALTERNATIVES                                            -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Why Not Just Use&hellip;</h2>
+    <p>These tools are great at what they do. Loupe fills a different niche: serverless, offline-capable, composable data apps that deploy as static files.</p>
+
+    <div class="comparison-wrap">
+      <table class="comparison">
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>No Server</th>
+            <th>SQL Engine</th>
+            <th>Persistent State</th>
+            <th>Composable Packages</th>
+            <th>Offline</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Streamlit</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+          </tr>
+          <tr>
+            <td>Observable</td>
+            <td class="no">&#x2717;</td>
+            <td class="yes">&#x2713;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+          </tr>
+          <tr>
+            <td>Evidence.dev</td>
+            <td class="no">&#x2717;</td>
+            <td class="yes">&#x2713;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+          </tr>
+          <tr>
+            <td>Gradio</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+          </tr>
+          <tr>
+            <td>DuckDB-WASM</td>
+            <td class="yes">&#x2713;</td>
+            <td class="yes">&#x2713;</td>
+            <td class="no">&#x2717;</td>
+            <td class="no">&#x2717;</td>
+            <td class="yes">&#x2713;</td>
+          </tr>
+          <tr>
+            <td>Loupe</td>
+            <td class="yes">&#x2713;</td>
+            <td class="yes">&#x2713;</td>
+            <td class="yes">&#x2713;</td>
+            <td class="yes">&#x2713;</td>
+            <td class="yes">&#x2713;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- GET STARTED                                                 -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="install-section">
+    <section>
+      <h2>Get Started</h2>
+      <p>Install the runtime and create your first dashboard in under a minute.</p>
+
+      <div class="install-block"><pre><span class="prompt">$ </span>npm install @loupe/loupe @loupe/themes
+
+<span class="cm"># or use individual packages</span>
+<span class="prompt">$ </span>npm install @loupe/data @loupe/render @loupe/state</pre></div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- FOOTER                                                      -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <div class="footer">
+    <p>
+      Built by <a href="https://github.com/jaredleonard">Jared Leonard</a>.
+      <a href="https://github.com/jaredleonard/loupe">Source on GitHub</a>.
+    </p>
+  </div>
+
+</body>
+</html>
